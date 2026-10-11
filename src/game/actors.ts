@@ -4,23 +4,30 @@ import type { BeamMode } from "../store";
 import type { SpriteLayer } from "./sprites";
 import type { World } from "./world";
 
-export type GirlState = "pace" | "notice" | "approach" | "search";
+export type GirlState = "pace" | "investigate" | "notice" | "approach" | "search";
 
 export interface MiloView {
   x: number;
   y: number;
   hidden: boolean;
+  /** 0 silent (still, or crouch-walking) … 1 loud (pushing through a bush). */
+  noise: number;
 }
+
+/** How far she hears a noise of strength 1 (a rustling bush). */
+const HEARING = 42;
 
 /** Her size relative to the authored silhouette (~37 rows): ~19 rows. Well under the pines, ~3.5× Milo. */
 const SCALE = 0.52;
 const PACE_MIN = 98;
-const PACE_MAX = 136;
+const PACE_MAX = 140;
 
 /**
  * The girl, as Milo sees her: "the Shape". A huge faceless silhouette with a flashlight.
- * Prototype behaviour: paces the north bank sweeping the pond, notices Milo when he's in
- * the open, swings the light onto him and walks closer; loses him if he hides.
+ * Prototype behaviour: paces the north bank sweeping the pond. Hears Milo (rustling bushes
+ * carry far, footsteps less, crouch-walking barely) and goes to look. Notices him in the open
+ * or a bush shaking in front of her, swings the light onto him and closes in. Only a Milo
+ * who hides *and keeps still* loses her.
  * The flashlight fields (x, y, angle, halfAngle, range, on) are what the light pass reads.
  */
 export class Girl {
@@ -44,6 +51,7 @@ export class Girl {
   private stateT = 0;
   private hiddenT = 0;
   private lastSeen = { x: 0, y: 0 };
+  private heard = { x: 0, y: 0 };
 
   update(dt: number, t: number, mode: BeamMode, aim: { x: number; y: number } | null, milo: MiloView, world: World) {
     this.on = mode !== "off";
@@ -52,33 +60,56 @@ export class Girl {
     const dy = milo.y - this.feetY;
     const dist = Math.hypot(dx, dy);
     const toMilo = Math.atan2(milo.y - this.y, milo.x - this.x);
-    const sees = this.on && !milo.hidden && dist < 60 && (dist < 22 || this.inCone(milo));
+    const inView = dist < 60 && (dist < 22 || this.inCone(milo));
+    // A bush shaking close in front of her gives him away as surely as seeing him.
+    const rustlingNearby = milo.hidden && milo.noise >= 1 && dist < 28 && (dist < 14 || this.inCone(milo));
+    const sees = this.on && ((!milo.hidden && inView) || rustlingNearby);
+    const hears = this.on && milo.noise > 0 && dist < milo.noise * HEARING;
+    // Hidden only counts while he keeps (nearly) quiet.
+    const lost = milo.hidden && milo.noise < 0.5;
     let target = this.angle;
-    let turnRate = 2;
+    let turnRate = 2.5;
 
     switch (this.state) {
       case "pace": {
-        this.walk(this.facing * 3.5 * dt, 0, world);
+        this.walk(this.facing * 4 * dt, 0, world);
         if (this.feetX <= PACE_MIN) this.facing = 1;
         if (this.feetX >= PACE_MAX) this.facing = -1;
         target = Math.atan2(70 - this.y, 92 - this.x) + Math.sin(t * 0.45) * 0.7;
         if (sees) this.enter("notice");
+        else if (hears) this.investigate(milo);
+        break;
+      }
+      case "investigate": {
+        // "What was that?" Light on the sound, walking over to it.
+        if (hears) this.heard = { x: milo.x, y: milo.y };
+        const hx = this.heard.x - this.feetX;
+        const hy = this.heard.y - this.feetY;
+        const hd = Math.hypot(hx, hy);
+        target = Math.atan2(this.heard.y - this.y, this.heard.x - this.x);
+        turnRate = 4.5;
+        if (hd > 6) this.walk((hx / hd) * 5.5 * dt, (hy / hd) * 5.5 * dt, world);
+        if (sees) this.enter("notice");
+        else if (this.stateT > 5 || (hd <= 6 && this.stateT > 1.5)) {
+          this.lastSeen = { ...this.heard };
+          this.enter("search");
+        }
         break;
       }
       case "notice": {
         // She freezes and the light snaps onto him. Nothing else happens, which is the scary part.
         target = toMilo;
         turnRate = 5;
-        if (milo.hidden) this.enter("search");
+        if (lost) this.enter("search");
         // The long stare, unless he's already right in front of her.
         else if (this.stateT > (dist < 25 ? 0.5 : 1.5)) this.enter("approach");
         break;
       }
       case "approach": {
         target = toMilo;
-        turnRate = 3;
-        if (dist > 11) this.walk((dx / dist) * 4 * dt, (dy / dist) * 4 * dt, world);
-        this.hiddenT = milo.hidden ? this.hiddenT + dt : 0;
+        turnRate = 4;
+        if (dist > 6) this.walk((dx / dist) * 5.5 * dt, (dy / dist) * 5.5 * dt, world);
+        this.hiddenT = lost ? this.hiddenT + dt : 0;
         if (this.hiddenT > 1.2 || dist > 70) this.enter("search");
         break;
       }
@@ -86,7 +117,8 @@ export class Girl {
         // Sweep around where he was last seen, then give up.
         const toLast = Math.atan2(this.lastSeen.y - this.y, this.lastSeen.x - this.x);
         target = toLast + Math.sin(this.stateT * 1.6) * 0.8;
-        if (sees && this.stateT > 0.5) this.enter("notice");
+        if (sees && this.stateT > 0.3) this.enter("notice");
+        else if (hears) this.investigate(milo);
         else if (this.stateT > 4.5) this.enter("pace");
         break;
       }
@@ -104,6 +136,11 @@ export class Girl {
     const hy = this.feetY - 17 * SCALE;
     this.x = hx + Math.cos(this.angle) * 2;
     this.y = hy + Math.sin(this.angle) * 2;
+  }
+
+  private investigate(milo: MiloView) {
+    this.heard = { x: milo.x, y: milo.y };
+    this.enter("investigate");
   }
 
   private enter(state: GirlState) {

@@ -192,16 +192,20 @@ export class Game {
       this.updateEnding(dt);
       return;
     }
+    this.kitten.inBush = this.miloInHideout();
     this.kitten.update(dt, this.input);
     const hidden = this.miloHidden();
-    this.girl.update(dt, this.t, settings.beam, this.mouseWorld(), { x: this.kitten.x, y: this.kitten.y, hidden }, this.world);
+    const noise = this.miloNoise();
+    this.kitten.rustling = noise >= 1;
+    this.girl.update(dt, this.t, settings.beam, this.mouseWorld(), { x: this.kitten.x, y: this.kitten.y, hidden, noise }, this.world);
     if (settings.fireflies) this.fireflies.update(dt, this.t, this.world);
 
     // She reaches him → the ending. Hiding (bush, crouching in tall grass) still saves him.
     const g = this.girl;
     const bodyY = Math.min(g.feetY, Math.max(g.feetY - GIRL_HEIGHT, this.kitten.y));
     const reach = Math.hypot(g.feetX - this.kitten.x, bodyY - this.kitten.y);
-    const exposed = g.on && !hidden;
+    // Hidden but pushing through a bush right next to her still gets him caught.
+    const exposed = g.on && (!hidden || noise >= 1);
     this.caughtT = exposed && reach < CATCH_DIST ? this.caughtT + dt : 0;
     if (exposed && (reach < TOUCH_DIST || this.caughtT > CATCH_SECS)) this.startEnding();
 
@@ -209,7 +213,7 @@ export class Game {
       // Prototype rule: the beam and her noticing him scare Milo; hiding calms him.
       const g = this.girl;
       const near = Math.hypot(g.feetX - this.kitten.x, g.feetY - this.kitten.y) < 30;
-      const watched = g.state === "notice" || g.state === "approach";
+      const watched = g.state === "notice" || g.state === "approach" || g.state === "investigate";
       if (this.composer.lightAtKitten > 0.3) this.fear += dt * 0.7;
       else if (near && watched) this.fear += dt * 0.4;
       else this.fear -= dt * (hidden ? 0.35 : 0.12);
@@ -234,6 +238,18 @@ export class Game {
     if (crossed(SCENE_START + ENDING.endCard)) setEnding("card");
     // While the light floods in, fear peaks one last time.
     if (this.endingT < SCENE_START) this.fear = Math.min(1, this.fear + dt);
+  }
+
+  /** How loud Milo is: still or crouch-walking is (nearly) silent; pushing through leaves is loud. */
+  private miloNoise() {
+    const k = this.kitten;
+    if (k.asleep || !k.moving) return 0;
+    if (k.crouching) return 0.2;
+    if (k.inBush) return 1;
+    const x = Math.round(k.x);
+    const y = Math.round(k.y);
+    const grass = this.world.inside(x, y) && this.world.mat[this.world.idx(x, y)] === Mat.TallGrass;
+    return grass ? 0.6 : 0.35;
   }
 
   /** Hideouts: inside a bush, or in a dark void (under the porch, the castle gate). */

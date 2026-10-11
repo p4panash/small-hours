@@ -122,3 +122,13 @@ Limits: iOS Safari has no Vibration API. Android requires a prior tap, which nor
 - Before: she had to notice (1.5 s stare) → approach → keep him within 13 cells of her *feet* for 1.5 s.
 - Now: she catches him whenever he's **visible and within 12 cells of any part of her body** (feet to head) for 0.4 s, or **instantly within 5 cells**. Hiding still saves him. Her stare is shortened to 0.5 s when he's close.
 - Tested: sprinting past in the open → caught 7 cells before reaching her. Same sprint while hidden → passes.
+
+## Round 13: a more reactive girl (the east hedge was a free pass)
+
+- Feedback: Milo could bypass her completely through the east hedge, because a bush made him invisible even while running. The route should stay possible, but she should still be able to catch him there.
+- **Hearing:** Milo makes noise when moving. Pushing through a bush = 1.0, which carries ~42 cells. Tall grass = 0.6, open ground = 0.35, crouch-walking = 0.2, still = 0.
+- **New state, `investigate`:** she hears something, swings the light to it and walks over (faster than pacing). If she sees him → notice (short stare when close) → approach. Otherwise she searches the spot, then goes back to pacing.
+- **Hidden only counts while quiet:** a bush shaking close in front of her counts as seeing him, and rustling near her body gets him caught. Crouching or freezing in a bush still hides him.
+- **Faster girl:** pacing 4 (was 3.5), investigate/approach 5.5 (was 4), quicker turns. Milo is slower inside bushes (6.5).
+- **Feedback for the player:** the bush Milo pushes through visibly shakes.
+- Tested along the east route (scripted input): walking → heard, investigated, caught on the east side (~10 s). Crouch-walking without ever freezing → got round the east side, caught on the north bank (~30 s). Crouching *and* freezing when her light comes is the way through.

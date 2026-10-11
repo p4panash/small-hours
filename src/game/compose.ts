@@ -91,7 +91,11 @@ export class Composer {
           // Wind gusts roll across the field as bands of brightness (= glyph changes).
           const gust = noise2(wx * 0.05 - t * 0.35, wy * 0.05);
           const wave = Math.sin(wx * 0.3 + wy * 0.12 - t * 2.2);
-          const k = 1 + wave * gust * (mat === Mat.Foliage ? 0.12 : 0.3);
+          let k = 1 + wave * gust * (mat === Mat.Foliage ? 0.12 : 0.3);
+          // The bush Milo is pushing through shakes: that's the noise she hears.
+          if (kitten.rustling && world.bush[wi] && Math.hypot(wx - kx, (wy - ky) * 1.3) < 7) {
+            k *= 1 + 0.45 * Math.sin(t * 34 + wx * 1.7 + wy * 2.3);
+          }
           r *= k;
           g *= k;
           b *= k;

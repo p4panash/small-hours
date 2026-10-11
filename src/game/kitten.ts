@@ -37,6 +37,9 @@ export class Kitten {
   moving = false;
   crouching = false;
   wading = false;
+  /** Set by the game each step: inside a bush (slower, and noisy unless crouching). */
+  inBush = false;
+  rustling = false;
   /** The game opens on Milo napping; a direction (or a few seconds) wakes him. */
   asleep = true;
   private sleepT = 0;
@@ -69,7 +72,7 @@ export class Kitten {
     const fy = Math.round(this.y);
     this.wading = this.world.inside(fx, fy) && this.world.mat[this.world.idx(fx, fy)] === Mat.Water;
 
-    const speed = this.crouching ? 4 : this.wading ? 4.5 : 10;
+    const speed = this.crouching ? 4 : this.wading ? 4.5 : this.inBush ? 6.5 : 10;
     this.moving = Math.hypot(dir.x, dir.y) > 0.05;
     if (dir.x !== 0) this.facing = dir.x > 0 ? 1 : -1;
     // Cells are square, so vertical speed matches horizontal.
