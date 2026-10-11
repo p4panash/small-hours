@@ -70,7 +70,8 @@ export class Girl {
         target = toMilo;
         turnRate = 5;
         if (milo.hidden) this.enter("search");
-        else if (this.stateT > 1.5) this.enter("approach");
+        // The long stare, unless he's already right in front of her.
+        else if (this.stateT > (dist < 25 ? 0.5 : 1.5)) this.enter("approach");
         break;
       }
       case "approach": {

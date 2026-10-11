@@ -115,3 +115,10 @@ Limits: iOS Safari has no Vibration API. Android requires a prior tap, which nor
 
 - Feedback (screenshot): with bushes all around her pacing route, her light "stopped working". Every bush cast a shadow, so the cone was cut off at her feet.
 - Fix: she holds the light above bush height, so **bushes no longer block the flashlight**. Only trees and the wall cast shadows. Bushes still hide Milo (hiding is a separate check from light).
+
+## Round 12: she catches Milo reliably
+
+- Feedback: Milo could walk past her without triggering the ending.
+- Before: she had to notice (1.5 s stare) → approach → keep him within 13 cells of her *feet* for 1.5 s.
+- Now: she catches him whenever he's **visible and within 12 cells of any part of her body** (feet to head) for 0.4 s, or **instantly within 5 cells**. Hiding still saves him. Her stare is shortened to 0.5 s when he's close.
+- Tested: sprinting past in the open → caught 7 cells before reaching her. Same sprint while hidden → passes.

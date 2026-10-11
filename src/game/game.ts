@@ -16,9 +16,12 @@ const SAFE_CELLS = 64;
 // Ending timeline, seconds after she reaches Milo.
 const FLASH_END = 1.2; // her light floods the screen white
 const SCENE_START = 4.4; // "Miloooo!" has typed out and held; fade into the close-up
-// She "catches" him after this long within reach while approaching.
-const CATCH_SECS = 1.5;
-const CATCH_DIST = 13;
+// She catches him when he's visible and close to any part of her: near → after a moment,
+// touching → at once. Measured to her whole body (feet to head), not just her feet.
+const CATCH_SECS = 0.4;
+const CATCH_DIST = 12;
+const TOUCH_DIST = 5;
+const GIRL_HEIGHT = 19;
 
 export class Game {
   private renderer: AsciiRenderer;
@@ -194,10 +197,13 @@ export class Game {
     this.girl.update(dt, this.t, settings.beam, this.mouseWorld(), { x: this.kitten.x, y: this.kitten.y, hidden }, this.world);
     if (settings.fireflies) this.fireflies.update(dt, this.t, this.world);
 
-    // She reaches him: stays within reach long enough while approaching → the ending.
-    const reach = Math.hypot(this.girl.feetX - this.kitten.x, this.girl.feetY - this.kitten.y);
-    this.caughtT = this.girl.state === "approach" && reach < CATCH_DIST ? this.caughtT + dt : 0;
-    if (this.caughtT > CATCH_SECS) this.startEnding();
+    // She reaches him → the ending. Hiding (bush, crouching in tall grass) still saves him.
+    const g = this.girl;
+    const bodyY = Math.min(g.feetY, Math.max(g.feetY - GIRL_HEIGHT, this.kitten.y));
+    const reach = Math.hypot(g.feetX - this.kitten.x, bodyY - this.kitten.y);
+    const exposed = g.on && !hidden;
+    this.caughtT = exposed && reach < CATCH_DIST ? this.caughtT + dt : 0;
+    if (exposed && (reach < TOUCH_DIST || this.caughtT > CATCH_SECS)) this.startEnding();
 
     if (settings.autoFear) {
       // Prototype rule: the beam and her noticing him scare Milo; hiding calms him.
